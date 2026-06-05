@@ -5,7 +5,7 @@ A six-stage pipeline agent that takes a GitHub issue from
 repository, plans and implements a fix with an LLM (tool-calling), validates it with the
 Go toolchain, and emits a git diff, a local branch, and a PR summary.
 
-The pipeline is built directly — **no LangChain/LangGraph or agent framework** — so every
+The pipeline is built directly — so every
 stage is readable and auditable.
 
 ## Pipeline stages
