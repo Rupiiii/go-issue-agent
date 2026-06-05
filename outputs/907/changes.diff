@@ -1,0 +1,57 @@
+diff --git a/baked_in.go b/baked_in.go
+index 679729a..c889861 100644
+--- a/baked_in.go
++++ b/baked_in.go
+@@ -2368,6 +2368,11 @@ func isGte(fl FieldLevel) bool {
+ 	param := fl.Param()
+ 
+ 	switch field.Kind() {
++	case reflect.Ptr:
++		if field.IsNil() {
++			return false
++		}
++		field = field.Elem()
+ 	case reflect.String:
+ 		p := asInt(param)
+ 
+@@ -2417,6 +2422,11 @@ func isGt(fl FieldLevel) bool {
+ 	param := fl.Param()
+ 
+ 	switch field.Kind() {
++	case reflect.Ptr:
++		if field.IsNil() {
++			return false
++		}
++		field = field.Elem()
+ 	case reflect.String:
+ 		p := asInt(param)
+ 
+@@ -2596,6 +2606,11 @@ func isLte(fl FieldLevel) bool {
+ 	param := fl.Param()
+ 
+ 	switch field.Kind() {
++	case reflect.Ptr:
++		if field.IsNil() {
++			return false
++		}
++		field = field.Elem()
+ 	case reflect.String:
+ 		p := asInt(param)
+ 
+@@ -2645,6 +2660,11 @@ func isLt(fl FieldLevel) bool {
+ 	param := fl.Param()
+ 
+ 	switch field.Kind() {
++	case reflect.Ptr:
++		if field.IsNil() {
++			return false
++		}
++		field = field.Elem()
+ 	case reflect.String:
+ 		p := asInt(param)
+ 
+@@ -3510,4 +3530,3 @@ var (
+ 	errMethodReturnNoValues    = errors.New(`method return o values (void)`)
+ 	errMethodReturnInvalidType = errors.New(`method should return invalid type`)
+ )
+-

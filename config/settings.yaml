@@ -1,0 +1,16 @@
+provider: google                # "google" (Gemini) or "anthropic"
+model: gemini-2.5-flash
+max_tokens_per_call: 8192
+thinking_budget: 2048            # Gemini thinking tokens per call (0=off, -1=dynamic). Ignored by anthropic.
+context_budget_tokens: 72000     # hard cap on input tokens per LLM call
+max_implement_iterations: 18     # max tool-calling loop iterations in Stage 4 (multi-file changes need headroom for search+read+edit per file, plus test + build + fixes)
+max_validate_retries: 2          # how many times Stage 4 re-runs after test failure
+go_command_timeout_seconds: 120  # timeout for any go subprocess call
+repo_file_extensions: [".go"]    # only index these file types
+excluded_dirs:                   # skip these during repo map
+  - vendor
+  - testdata
+  - .git
+  - node_modules
+  - translations                 # locale tables — never the fix site, pollute scoring
+  - _examples                    # sample programs — never the fix site, pollute scoring

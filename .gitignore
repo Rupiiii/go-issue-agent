@@ -1,0 +1,27 @@
+# --- secrets (NEVER commit) ---
+.env
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# --- Claude Code session ---
+.claude/
+
+# --- ephemeral run logs ---
+logs/
+
+# --- internal docs / planning (not part of the public deliverable) ---
+CLAUDE.md
+PROCEDURE.md
+RESULTS.md
+issues_to_test.md
+Take-Home Assignment*.pdf
+
+# --- sample outputs: commit only the curated showcases ---
+outputs/*
+!outputs/1543/
+!outputs/907/
