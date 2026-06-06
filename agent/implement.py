@@ -45,20 +45,23 @@ class ImplementResult:
     # Carried for Stage 5 retry; not part of the documented schema.
     executor: ToolExecutor | None = None
     messages: list[dict] = field(default_factory=list)
+    project: str = ""  # repo_full_name, for the (repo-agnostic) retry system prompt
 
 
 _SYSTEM_PROMPT_TEMPLATE = """\
-You are a senior Go engineer fixing a GitHub issue in the go-playground/validator library.
+You are a senior Go engineer fixing a GitHub issue in the {project} open-source project.
 
 Tools: read_file, search_code, edit_file, write_file, run_go_command.
 
 WORKFLOW
-1. Use search_code to locate the symbol, test, or similar validator you need — never guess
-   a path, function, or tag name. Test files can be very large; search_code returns line
+1. Use search_code to locate the symbol, test, or similar existing code you need — never
+   guess a path, function, or name. Test files can be very large; search_code returns line
    numbers.
-2. Read the exact text before changing it. For a large file, read just the region:
-   read_file with start_line/end_line around the line search_code reported (a full read of
-   a big file is truncated).
+2. Read the exact text before changing it. For a large file, read the region with
+   read_file start_line/end_line around the line search_code reported; the read auto-expands
+   to the WHOLE enclosing function, so you see its full control flow before editing. Place
+   your edit with the entire function in mind — a guard/return added mid-function must not
+   skip code that runs below it.
 3. Make the change with edit_file, then verify with the Go toolchain before finishing.
 
 EDITING RULES — violating these breaks the build
@@ -85,13 +88,12 @@ EDITING RULES — violating these breaks the build
   code that still needs to work, it is WRONG — make a smaller, insertion-style edit instead.
   Before each edit_file, check: "does old_string contain any line that is not the bug?" If
   yes, shrink it.
-  Example — to make `excluded_if=X nil` stop panicking, ADD a guard at the top of the
-  function (e.g. `if value == "nil" return field.IsNil()`). Do NOT rewrite the existing
-  `switch` over kinds or delete its Ptr/Slice/String cases — they must keep working unchanged.
+  Example — to stop a function panicking on a new input, ADD a guard at the top of the
+  function; do NOT rewrite or delete the existing branches below it — they must keep working.
 - Make the MINIMAL change that fixes the issue: fewest files, fewest lines. Prefer fixing
-  logic inside the validator function over rewriting a regex or data table.
-- Match the surrounding code style and the project conventions exactly.
-- Do not modify validator.go, cache.go, or errors.go unless the issue explicitly requires it.
+  logic in the relevant function over rewriting large data tables.
+- Match the surrounding code style and the project's conventions exactly.
+- Do not modify core, shared, or unrelated files unless the issue explicitly requires it.
 - Do NOT add new third-party dependencies or edit go.mod / go.sum. The toolchain cannot
   fetch modules (there is no `go get`/`go mod tidy`), so a new import will fail to build.
   Solve the issue with the standard library and the dependencies already in the repo
@@ -277,8 +279,9 @@ def implement(
     settings: Settings,
     logger=None,
 ) -> ImplementResult:
+    project = issue.repo_full_name or "this"
     system_prompt = _SYSTEM_PROMPT_TEMPLATE.format(
-        max_iterations=settings.max_implement_iterations
+        max_iterations=settings.max_implement_iterations, project=project
     )
     initial = _build_initial_message(issue, plan, repo_ctx, conventions)
     messages: list[dict] = [{"role": "user", "content": initial}]
@@ -301,6 +304,7 @@ def implement(
         success=bool(executor.written_files),
         executor=executor,
         messages=messages,
+        project=project,
     )
 
 
@@ -355,7 +359,7 @@ def retry_implementation(
     )
     messages = impl.messages + [{"role": "user", "content": retry_message}]
     system_prompt = _SYSTEM_PROMPT_TEMPLATE.format(
-        max_iterations=settings.max_implement_iterations
+        max_iterations=settings.max_implement_iterations, project=impl.project or "this"
     )
 
     iterations_used, tool_call_log = _run_loop(
@@ -376,4 +380,5 @@ def retry_implementation(
         success=bool(executor.written_files),
         executor=executor,
         messages=messages,
+        project=impl.project,
     )

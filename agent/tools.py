@@ -141,6 +141,33 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
 ]
 
 
+def _enclosing_func_bounds(lines: list[str], target_idx: int) -> tuple[int, int] | None:
+    """Return (start_idx, end_idx) — 0-based inclusive — of the top-level Go function that
+    encloses ``target_idx``, or None if the target is not inside one.
+
+    Relies on gofmt layout: a top-level ``func …{`` begins at column 0 and its matching
+    ``}`` is the next line that begins at column 0 (nested braces are indented). This is
+    robust for gofmt'd Go (the target repos all are) and needs no Go parser.
+    """
+    if target_idx < 0 or target_idx >= len(lines):
+        return None
+    func_start = None
+    for i in range(target_idx, -1, -1):
+        if lines[i].startswith("func "):
+            func_start = i
+            break
+        # A column-0 '}' reached while scanning back (before any func) means the target
+        # sits between/after functions, not inside a function body.
+        if i < target_idx and lines[i].startswith("}"):
+            return None
+    if func_start is None:
+        return None
+    for j in range(func_start + 1, len(lines)):
+        if lines[j].startswith("}"):
+            return (func_start, j) if j >= target_idx else None
+    return None
+
+
 class ToolExecutor:
     def __init__(self, repo_root: str, go_timeout: int = _DEFAULT_GO_TIMEOUT):
         self.repo_root = os.path.realpath(repo_root)
@@ -169,15 +196,28 @@ class ToolExecutor:
             lines = f.readlines()
         total = len(lines)
 
-        # Ranged read: return the requested 1-based inclusive window (bounded).
+        # Ranged read: return the requested 1-based inclusive window (bounded). If the
+        # start falls inside a Go function, expand the window to the WHOLE enclosing
+        # function — the model tends to pick too-narrow windows and then edit without
+        # seeing the rest of the function's control flow (the cause of mis-placed edits).
         if start_line is not None or end_line is not None:
-            start = max(1, start_line or 1)
-            end = min(total, end_line or total)
-            if start > total:
-                return f"ERROR: start_line {start} is past end of file ({total} lines)"
-            end = min(end, start + _READ_RANGE_LINE_CAP - 1)
+            req_start = max(1, start_line or 1)
+            if req_start > total:
+                return f"ERROR: start_line {req_start} is past end of file ({total} lines)"
+            bounds = _enclosing_func_bounds(lines, req_start - 1)
+            expanded = False
+            if bounds is not None:
+                fstart, fend = bounds  # 0-based inclusive
+                start = min(req_start, fstart + 1)
+                end = max(end_line or 0, fend + 1)
+                expanded = (start, end) != (req_start, end_line or (fend + 1))
+            else:
+                start = req_start
+                end = min(total, end_line or total)
+            end = min(end, start + _READ_RANGE_LINE_CAP - 1, total)
             window = lines[start - 1 : end]
-            header = f"[lines {start}-{end} of {total} in {path}]\n"
+            note = " — expanded to enclosing function" if expanded else ""
+            header = f"[lines {start}-{end} of {total} in {path}{note}]\n"
             return header + "".join(window)
 
         # Full read, capped.

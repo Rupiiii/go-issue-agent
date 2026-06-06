@@ -80,7 +80,7 @@ def run(issue_url: str, repo_path: str, output_dir: str | None = None, dry_run: 
 
     # Stage 3 — Plan.
     logger.stage("plan")
-    conventions = load_conventions()
+    conventions = load_conventions(issue.repo_full_name)
     plan = plan_fix(issue, repo_ctx, conventions, llm, logger)
     logger.log(plan)
     logger.flush()

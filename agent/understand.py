@@ -23,10 +23,12 @@ _TOP_N_RELEVANT = 5
 _FULL_CONTENT_LINE_CAP = 600
 _SKELETON_GREP = r"^func \|^type \|^package \|^import "
 
-# Always-relevant files for go-playground/validator. Current master keeps all
-# built-in validators in baked_in.go and their tests in validator_test.go
-# (the historical baked_in_test.go was folded into validator_test.go).
-_ALWAYS_RELEVANT = ["baked_in.go", "validator_test.go"]
+# Repo-specific always-relevant files (forced into relevant_files when present). Keyed by
+# the repo name; empty for repos we have no hard-coded hints for. For validator, all built-in
+# validators live in baked_in.go and their tests in validator_test.go.
+_ALWAYS_RELEVANT_BY_REPO = {
+    "validator": ["baked_in.go", "validator_test.go"],
+}
 
 _WORD_RE = re.compile(r"[a-z0-9]+")
 # Matches a Go filename mentioned in prose, e.g. "regexes.go" or "internal/foo.go".
@@ -150,8 +152,9 @@ def understand(repo_path: str, issue: IssueContext, settings: Settings | None = 
         if named not in relevant:
             relevant.append(named)
 
-    # Always include the validator hot files if present in the repo.
-    for forced in _ALWAYS_RELEVANT:
+    # Force-include repo-specific hot files if we have hints for this repo and they exist.
+    repo_key = (issue.repo_full_name or "").split("/")[-1].replace("-", "_")
+    for forced in _ALWAYS_RELEVANT_BY_REPO.get(repo_key, []):
         if forced not in relevant and os.path.isfile(os.path.join(repo_path, forced)):
             relevant.append(forced)
 

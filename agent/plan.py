@@ -17,11 +17,24 @@ from .ingest import IssueContext
 from .llm import LLMClient
 from .understand import RepoContext
 
-_CONVENTIONS_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "config",
-    "validator_conventions.md",
+_CONFIG_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config"
 )
+_CONVENTIONS_PATH = os.path.join(_CONFIG_DIR, "validator_conventions.md")
+
+# Repo-agnostic conventions used when no project-specific file exists (gin, cobra, …).
+_GENERIC_CONVENTIONS = """\
+# Go contribution conventions (generic)
+
+- Match the style, naming, and patterns of the surrounding code and package.
+- Make the smallest change that fixes the issue; avoid unrelated refactors.
+- Add or extend tests next to the existing ones (usually table-driven `*_test.go` in the
+  same package), matching their format exactly.
+- Return errors rather than panicking, except where surrounding code already panics for
+  programmer errors.
+- Do not add new third-party dependencies or modify go.mod / go.sum.
+- Do not modify core, shared, or generated files unless the issue explicitly requires it.
+"""
 
 
 class PlanError(Exception):
@@ -38,25 +51,23 @@ class FixPlan:
     estimated_complexity: str = "medium"  # "small" | "medium" | "large"
 
 
-_SYSTEM_PROMPT = """\
-You are a senior Go engineer working on the go-playground/validator library.
+_SYSTEM_PROMPT_TEMPLATE = """\
+You are a senior Go engineer contributing to the {project} open-source project.
 Analyze a GitHub issue and produce a precise, MINIMAL implementation plan.
 
 Guidelines:
-- Choose the smallest set of files and changes that fix the issue. Each change will be
-  applied by rewriting the whole file, so prefer edits localized to a single validator
-  function over rewriting large regex or data tables.
-- Identify the existing built-in validator most similar to what the issue needs and follow
-  its pattern.
-- Be concrete in change_descriptions: name the exact function(s), tag(s), and test(s) to
+- Choose the smallest set of files and changes that fix the issue. Prefer edits localized
+  to a single function over broad rewrites or changes to large data tables.
+- Identify the existing code most similar to what the issue needs and follow its pattern.
+- Be concrete in change_descriptions: name the exact function(s), type(s), and test(s) to
   touch, not just the file.
 
 PANIC ISSUES: If the issue includes a panic stack trace, read it carefully. The fix site is
-the first APPLICATION-code frame in the trace — not the stdlib frame (e.g. strconv,
-runtime) and not the outermost function. Name the exact file, function, and approximate
-line number in your plan, and the specific call/branch that triggers the panic (e.g. an
-asInt() call inside a particular reflect.Kind case). Do not infer the fix location from the
-function name alone.
+the first APPLICATION-code frame in the trace — not the stdlib/runtime frame and not the
+outermost function. Name the exact file, function, approximate line number, AND the specific
+call or branch that triggers the panic (a panic often originates one level deeper than the
+function it surfaces in — e.g. inside a particular type/Kind case after a dereference). Do
+not infer the fix location from the function name alone.
 
 Output ONLY valid JSON matching the FixPlan schema. Do not include any other text."""
 
@@ -72,8 +83,22 @@ The JSON object must have exactly these keys:
 }"""
 
 
-def load_conventions(path: str = _CONVENTIONS_PATH) -> str:
-    with open(path, "r", encoding="utf-8") as f:
+def load_conventions(repo_full_name: str | None = None) -> str:
+    """Load project-specific conventions if a file exists, else generic Go conventions.
+
+    Looks for config/<repo>_conventions.md (e.g. validator_conventions.md). This keeps the
+    agent repo-agnostic: validator gets its hand-written conventions; gin/cobra/etc. get the
+    generic set unless someone adds a file for them.
+    """
+    if repo_full_name:
+        repo = repo_full_name.split("/")[-1].replace("-", "_")
+        candidate = os.path.join(_CONFIG_DIR, f"{repo}_conventions.md")
+        if os.path.isfile(candidate):
+            with open(candidate, "r", encoding="utf-8") as f:
+                return f.read()
+        return _GENERIC_CONVENTIONS
+    # Back-compat: default to validator conventions when no repo is given.
+    with open(_CONVENTIONS_PATH, "r", encoding="utf-8") as f:
         return f.read()
 
 
@@ -143,10 +168,11 @@ def plan_fix(
     llm: LLMClient,
     logger=None,
 ) -> FixPlan:
+    system_prompt = _SYSTEM_PROMPT_TEMPLATE.format(project=issue.repo_full_name or "this")
     user_message = _build_user_message(issue, repo_ctx, conventions)
     messages = [{"role": "user", "content": user_message}]
 
-    result = llm.complete(system=_SYSTEM_PROMPT, messages=messages, temperature=0.2)
+    result = llm.complete(system=system_prompt, messages=messages, temperature=0.2)
     if logger:
         logger.add_tokens(result.input_tokens, result.output_tokens)
 
@@ -165,7 +191,7 @@ def plan_fix(
                 ),
             },
         ]
-        repair = llm.complete(system=_SYSTEM_PROMPT, messages=repair_messages, temperature=0.0)
+        repair = llm.complete(system=system_prompt, messages=repair_messages, temperature=0.0)
         if logger:
             logger.add_tokens(repair.input_tokens, repair.output_tokens)
         try:

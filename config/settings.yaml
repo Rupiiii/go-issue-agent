@@ -1,5 +1,5 @@
 provider: google                # "google" (Gemini) or "anthropic"
-model: gemini-2.5-flash
+model: gemini-2.5-pro
 max_tokens_per_call: 8192
 thinking_budget: 2048            # Gemini thinking tokens per call (0=off, -1=dynamic). Ignored by anthropic.
 context_budget_tokens: 72000     # hard cap on input tokens per LLM call
