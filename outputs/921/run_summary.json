@@ -1,0 +1,19 @@
+{
+  "issue_url": "https://github.com/spf13/cobra/issues/921",
+  "branch": "agent/fix-issue-921",
+  "files_modified": [
+    "shell_completions.go",
+    "command_test.go"
+  ],
+  "validation": {
+    "build": true,
+    "tests": true,
+    "vet": true
+  },
+  "iterations_used": 9,
+  "total_api_tokens": {
+    "input": 78897,
+    "output": 2151
+  },
+  "estimated_cost_usd": 0.1201
+}

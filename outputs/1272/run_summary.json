@@ -1,0 +1,18 @@
+{
+  "issue_url": "https://github.com/spf13/cobra/issues/1272",
+  "branch": "agent/fix-issue-1272",
+  "files_modified": [
+    "command.go"
+  ],
+  "validation": {
+    "build": true,
+    "tests": true,
+    "vet": true
+  },
+  "iterations_used": 18,
+  "total_api_tokens": {
+    "input": 238812,
+    "output": 2896
+  },
+  "estimated_cost_usd": 0.3275
+}

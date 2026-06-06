@@ -27,7 +27,7 @@ The LLM backend is swappable behind `agent/llm.py` and selected by `provider` in
 `config/settings.yaml`:
 
 - **`google`** (default) — Google AI Studio (Gemini), via the `google-genai` SDK. Needs
-  `GEMINI_API_KEY` (or `GOOGLE_API_KEY`). Default model `gemini-2.5-flash`; `thinking_budget`
+  `GEMINI_API_KEY` (or `GOOGLE_API_KEY`). Default model `gemini-2.5-pro`; `thinking_budget`
   caps thinking tokens per call.
 - **`anthropic`** — Claude via the Anthropic SDK. Needs `ANTHROPIC_API_KEY`.
 
@@ -87,7 +87,7 @@ root:
 | Key | Meaning |
 |-----|---------|
 | `provider` | `google` (Gemini) or `anthropic` |
-| `model` | e.g. `gemini-2.5-flash` |
+| `model` | e.g. `gemini-2.5-pro` |
 | `thinking_budget` | Gemini thinking tokens per call (0=off, -1=dynamic) |
 | `max_tokens_per_call` | output token cap per LLM call |
 | `context_budget_tokens` | Stage-4 input budget; oldest tool results are truncated past this |
@@ -131,5 +131,16 @@ python tests/test_pipeline.py        # or: python -m pytest tests/ -q
 
 ## Sample outputs
 
-See `outputs/1543/` for a clean end-to-end success (add `dns_label` validator: build,
-tests, and vet all pass). 
+Real `gemini-2.5-pro` runs across all three library repos (each `changes.diff` +
+`pr_summary.md` + `run_summary.json`):
+
+- `outputs/1315/` — validator: clearer `required`-on-bool error message
+- `outputs/1272/` — cobra: hidden commands no longer inflate usage indentation
+- `outputs/921/`  — cobra: `MarkFlagRequired` now honors inherited flags
+- `outputs/4688/` — gin: `AsciiJSON` emits correct surrogate pairs for non-BMP runes
+- `outputs/4622/` — gin: `SaveUploadedFile` no longer chmods pre-existing directories
+
+All five build, vet, and test green. `outputs/1320/` is kept deliberately as an **honest
+non-fix**: the agent declined to guess on a subtle nested-dereference panic
+(`excluded_if=… nil`), so `run_summary.json` shows no files changed rather than a fabricated
+or wrong fix.

@@ -1,0 +1,57 @@
+diff --git a/context.go b/context.go
+index a2e28e5..f162407 100644
+--- a/context.go
++++ b/context.go
+@@ -728,11 +728,16 @@ func (c *Context) SaveUploadedFile(file *multipart.FileHeader, dst string, perm
+ 		mode = perm[0]
+ 	}
+ 	dir := filepath.Dir(dst)
++	_, err = os.Stat(dir)
++	chmod := os.IsNotExist(err)
++
+ 	if err = os.MkdirAll(dir, mode); err != nil {
+ 		return err
+ 	}
+-	if err = os.Chmod(dir, mode); err != nil {
+-		return err
++	if chmod {
++		if err = os.Chmod(dir, mode); err != nil {
++			return err
++		}
+ 	}
+ 
+ 	out, err := os.Create(dst)
+diff --git a/context_test.go b/context_test.go
+index 364a92a..d4d7c52 100644
+--- a/context_test.go
++++ b/context_test.go
+@@ -275,6 +275,29 @@ func TestSaveUploadedFileWithPermissionFailed(t *testing.T) {
+ 	require.Error(t, c.SaveUploadedFile(f, "test/permission_test", mode))
+ }
+ 
++func TestSaveUploadedFileToExistingDir(t *testing.T) {
++	buf := new(bytes.Buffer)
++	mw := multipart.NewWriter(buf)
++	w, err := mw.CreateFormFile("file", "test")
++	require.NoError(t, err)
++	_, err = w.Write([]byte("test"))
++	require.NoError(t, err)
++	mw.Close()
++	c, _ := CreateTestContext(httptest.NewRecorder())
++	c.Request, _ = http.NewRequest(http.MethodPost, "/", buf)
++	c.Request.Header.Set("Content-Type", mw.FormDataContentType())
++	f, err := c.FormFile("file")
++	require.NoError(t, err)
++	assert.Equal(t, "test", f.Filename)
++
++	// save file to an existing dir
++	dst := filepath.Join(os.TempDir(), "test")
++	require.NoError(t, c.SaveUploadedFile(f, dst))
++	t.Cleanup(func() {
++		assert.NoError(t, os.Remove(dst))
++	})
++}
++
+ func TestContextReset(t *testing.T) {
+ 	router := New()
+ 	c := router.allocateContext(0)

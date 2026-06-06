@@ -21,7 +21,12 @@ RESULTS.md
 issues_to_test.md
 Take-Home Assignment*.pdf
 
-# --- sample outputs: commit only the curated showcases ---
+# --- sample outputs: commit only the curated gemini-2.5-pro showcases ---
+# Five solved across validator/cobra/gin, plus #1320 (honest no-op — fix declined).
 outputs/*
-!outputs/1543/
-!outputs/907/
+!outputs/1315/
+!outputs/1272/
+!outputs/921/
+!outputs/4688/
+!outputs/4622/
+!outputs/1320/

@@ -1,0 +1,57 @@
+diff --git a/errors.go b/errors.go
+index fd90625..d05cc11 100644
+--- a/errors.go
++++ b/errors.go
+@@ -245,6 +245,9 @@ func (fe *fieldError) Type() reflect.Type {
+ 
+ // Error returns the fieldError's error message
+ func (fe *fieldError) Error() string {
++	if fe.tag == "required" && fe.kind == reflect.Bool {
++		return fmt.Sprintf(fieldErrMsg, fe.ns, fe.Field(), fe.tag) + " (note: for booleans, 'false' is considered a zero value)"
++	}
+ 	return fmt.Sprintf(fieldErrMsg, fe.ns, fe.Field(), fe.tag)
+ }
+ 
+diff --git a/validator_test.go b/validator_test.go
+index 67d3f83..30d2de8 100644
+--- a/validator_test.go
++++ b/validator_test.go
+@@ -10272,6 +10272,38 @@ func TestRequired(t *testing.T) {
+ 	AssertError(t, err.(ValidationErrors), "Test.Value", "Test.Value", "Value", "Value", "required")
+ }
+ 
++func TestRequiredBoolErrorMessage(t *testing.T) {
++	validate := New()
++
++	type Test struct {
++		BoolValue  bool `validate:"required"`
++		IntValue   int  `validate:"required"`
++		PtrValue   *bool
++		TrueValue  bool
++		FalseValue bool
++	}
++
++	var test Test
++	test.TrueValue = true
++	test.FalseValue = false
++
++	err := validate.Struct(test)
++	NotEqual(t, err, nil)
++
++	errs := err.(ValidationErrors)
++	Equal(t, len(errs), 2)
++
++	// Test for new error message on bool
++	fe := getError(errs, "Test.BoolValue", "Test.BoolValue")
++	NotEqual(t, fe, nil)
++	Equal(t, fe.Error(), "Key: 'Test.BoolValue' Error:Field validation for 'BoolValue' failed on the 'required' tag (note: for booleans, 'false' is considered a zero value)")
++
++	// Test for original error message on other types
++	fe = getError(errs, "Test.IntValue", "Test.IntValue")
++	NotEqual(t, fe, nil)
++	Equal(t, fe.Error(), "Key: 'Test.IntValue' Error:Field validation for 'IntValue' failed on the 'required' tag")
++}
++
+ func TestBoolEqual(t *testing.T) {
+ 	validate := New()
+ 

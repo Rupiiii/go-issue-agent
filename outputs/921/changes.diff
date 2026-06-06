@@ -1,0 +1,42 @@
+diff --git a/command_test.go b/command_test.go
+index a86e57f..713f36d 100644
+--- a/command_test.go
++++ b/command_test.go
+@@ -868,6 +868,16 @@ func TestRequiredFlags(t *testing.T) {
+ 	}
+ }
+ 
++func TestMarkInheritedFlagRequired(t *testing.T) {
++	rootCmd := &Command{Use: "root", Run: emptyRun}
++	rootCmd.PersistentFlags().String("foo", "", "foo flag")
++
++	childCmd := &Command{Use: "child", Run: emptyRun}
++	rootCmd.AddCommand(childCmd)
++
++	assertNoErr(t, childCmd.MarkFlagRequired("foo"))
++}
++
+ func TestPersistentRequiredFlags(t *testing.T) {
+ 	parent := &Command{Use: "parent", Run: emptyRun}
+ 	parent.PersistentFlags().String("foo1", "", "")
+diff --git a/shell_completions.go b/shell_completions.go
+index b035742..5a6fc66 100644
+--- a/shell_completions.go
++++ b/shell_completions.go
+@@ -22,6 +22,7 @@ import (
+ // prioritize the named flag when performing completion,
+ // and causes your command to report an error if invoked without the flag.
+ func (c *Command) MarkFlagRequired(name string) error {
++	c.mergePersistentFlags()
+ 	return MarkFlagRequired(c.Flags(), name)
+ }
+ 
+@@ -29,7 +30,7 @@ func (c *Command) MarkFlagRequired(name string) error {
+ // prioritize the named persistent flag when performing completion,
+ // and causes your command to report an error if invoked without the flag.
+ func (c *Command) MarkPersistentFlagRequired(name string) error {
+-	return MarkFlagRequired(c.PersistentFlags(), name)
++	return c.MarkFlagRequired(name)
+ }
+ 
+ // MarkFlagRequired instructs the various shell completion implementations to
